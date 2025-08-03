@@ -25,10 +25,18 @@ Linkguard serves as an alternative to CAPTCHA systems, offering an unobtrusive w
 3. Configure the Argon2id settings such as iterations, memory, and parallelism to customize the key derivation process.
 4. Click **Generate links and encrypted files** to create the encrypted links and associated files.
 5. A ZIP file containing the encrypted links, passwords, salts, and settings will be generated and ready for download.
-
+6. Include the `linkguard.js` file in your site (e.g., `<script src="path/to/linkguard.js"></script>`).
+7. Upload the content of the ZIP file to the root directory of your website.
+8. Replace all sensitive links with the links shown in the setup.html.
+9. Optional: Add `target="_blank"` in your `<a>` HTML tags if you want the links to open in a new tab.
+   
 ### Example Usage
 
 After generating the links and downloading the ZIP file, you can include the generated JavaScript code to display the protected links on your website.
+
+```html
+<a href="javascript:void(0)" onclick="decryptLink('link_1', event)" target="_blank">Click to open the link</a>
+```
 
 ### Dependencies
 
