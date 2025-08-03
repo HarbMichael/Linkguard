@@ -1,5 +1,5 @@
 # Linkguard
-An experimental JavaScript to protect your links from scraping and spambots.
+An experimental JavaScript proof of concept to protect your links from scraping and spambots.
 
 ## Description
 
