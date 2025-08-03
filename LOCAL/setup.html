@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en5">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Linkguard Setup</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        h1 {
+            color: #333;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        textarea {
+            width: 100%;
+            height: 150px;
+            padding: 10px;
+            font-size: 16px;
+            margin-bottom: 15px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            background-color: #fafafa;
+        }
+        input[type="button"] {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            font-size: 16px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        input[type="button"]:hover {
+            background-color: #45a049;
+        }
+        .output {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e7f9e7;
+            border-radius: 5px;
+            border: 1px solid #d4e8d4;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Linkguard Setup</h1>
+        <form id="linkForm">
+            <label for="links">Enter your links and the linktext below (Format: [link] [linktext]):</label><br>
+            <textarea id="links" placeholder="mailto:me@example.com Send me a mail&#10;https://example.com Visit our website" required></textarea><br>
+
+            <h3>Argon2id settings:</h3>
+            <label for="time">Iterations (time):</label><br>
+            <input type="number" id="time" value="300" min="1" /><br>
+
+            <label for="mem">Memory (mem) in KB:</label><br>
+            <input type="number" id="mem" value="4096" min="1024" /><br>
+
+            <label for="parallelism">Parallelismus:</label><br>
+            <input type="number" id="parallelism" value="2" min="1" /><br>
+
+            <label for="decrypting">Text while decryption:</label><br>
+            <input type="text" id="decrypting" value="Link wird entschlüsselt..." /><br>
+
+            <label for="linkcounter">Linkcounter:</label><br>
+            <input type="number" id="linkcounter" value="1" min="1" /><br>
+
+            <br />
+            <input type="button" value="Generate links and encrypted files" onclick="generateLinks()" />
+        </form>
+
+        <div id="outputContainer" class="output" style="display: none;">
+            <h3>Generierte Links und ZIP-File:</h3>
+            <pre id="output"></pre>
+            <!-- Downloadlink for the zipfile -->
+            <div id="downloadLinkContainer" style="display:none;">
+                <p>Die ZIP-Datei ist bereit zum Download. Klicke hier:</p>
+                <a id="downloadLink" href="#" download="linkguard.zip">Download ZIP-Datei</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/argon2-browser@1.18.0/dist/argon2-bundled.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+    <script>
+        // Generate a random password
+        function generateRandomPassword(length = 32) {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+[]{}|;:,.<>?';
+            let password = '';
+            for (let i = 0; i < length; i++) {
+                const randomIndex = Math.floor(Math.random() * chars.length);
+                password += chars[randomIndex];
+            }
+            return password;
+        }
+
+        // Generate a random salt
+        function generateRandomSalt(length = 32) {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+            let salt = '';
+            for (let i = 0; i < length; i++) {
+                const randomIndex = Math.floor(Math.random() * chars.length);
+                salt += chars[randomIndex];
+            }
+            return salt;
+        }
+
+        async function generateLinks() {
+            // Get inputdata
+            const linksTextarea = document.getElementById('links');
+            const links = linksTextarea.value.trim().split('\n'); // Links separate via CRFL
+
+            // Get configdata for the settings.json
+            const time = parseInt(document.getElementById('time').value);
+            const mem = parseInt(document.getElementById('mem').value);
+            const parallelism = parseInt(document.getElementById('parallelism').value);
+            const decrypting = document.getElementById('decrypting').value;
+
+            // Contaier for outpt
+            const outputContainer = document.getElementById('outputContainer');
+            const output = document.getElementById('output');
+            const downloadLinkContainer = document.getElementById('downloadLinkContainer');
+            const downloadLink = document.getElementById('downloadLink');
+            outputContainer.style.display = 'block';
+
+            let generatedLinks = '';
+            let settings = {
+                time: time,
+                mem: mem,
+                parallelism: parallelism,
+                decrypting: decrypting,
+            };
+
+            // Create zipfile
+            const zip = new JSZip();
+
+            // Process links
+            let j = parseInt(document.getElementById('linkcounter').value);
+            for (let i = 0; i < links.length; i++) {
+                const link = links[i].trim();
+                const parts = link.split(' '); // Links and linktext will be separated by the first space
+
+                if (parts.length < 2) {
+                    alert(`Invalid entry in line ${i+1}. Please make sure to you enter a link and a linktext.`);
+                    continue; // Skip the invalid line
+                }
+
+                const href = parts[0];  // Link is the first part
+                const linktext = parts.slice(1).join(' ');  // The rest is the linktext
+
+                // Generate random password and salt
+                const password = generateRandomPassword();  // Random password
+                const salt = generateRandomSalt();  // Random salt
+
+                try {
+                    // Use Argon2id to generate a key with the passwort and salt
+                    const derivedKey = await argon2.hash({
+                        pass: password,
+                        salt: salt,
+                        time: time,
+                        mem: mem,
+                        parallelism: parallelism,
+                        hashLen: 32
+                    });
+
+                    // Change the argon2id key to base64 with cryptojs
+                    const keyBase64 = CryptoJS.enc.Base64.stringify(CryptoJS.lib.WordArray.create(derivedKey.hash));
+
+                    // Encrypt the link
+                    const encryptedHref = CryptoJS.AES.encrypt(href, keyBase64).toString();
+
+                    // Create the HTML code for output
+                    const htmlLink = `<a href="javascript:void(0)" onclick="decryptLink('link_${j}', event)">${linktext}</a>`;
+                    generatedLinks += `${htmlLink}\n`;
+
+                    // Put the encrypted link, the passwort and the salt in the zipfile
+                    zip.file(`linkguard/enc/link_${j}.aes`, encryptedHref);
+                    zip.file(`linkguard/pwd/link_${j}.pwd`, password);
+                    zip.file(`linkguard/salt/link_${j}.salt`, salt);
+                    j++;
+                } catch (error) {
+                    console.error('Fehler bei der Schlüsselableitung mit Argon2Id:', error);
+                }
+            }
+
+            // Put the settings.json in the zipfile (contains the Argon2id settings)
+            zip.file("linkguard/settings.json", JSON.stringify(settings, null, 4));
+
+            // Generate zipfile!
+            zip.generateAsync({ type: "blob" }).then(function(content) {
+                // Create link to download the zipfile
+                const objectURL = URL.createObjectURL(content);
+                downloadLink.href = objectURL;  // Set the url to the download link
+                downloadLinkContainer.style.display = 'block'; // Show download link
+            });
+
+            // Output the HTML Code for the generated links
+            output.textContent = generatedLinks;
+        }
+    </script>
+
+</body>
+</html>
