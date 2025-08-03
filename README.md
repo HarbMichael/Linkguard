@@ -51,16 +51,6 @@ After generating the links and downloading the ZIP file, you can include the gen
 
 This project is licensed under the MIT License – see the [LICENSE](./LICENSE) file for details.
 
-## Contributing
-
-We welcome contributions! If you find a bug or would like to suggest an improvement, please open an issue or submit a pull request on GitHub.
-
-- Fork the repository
-- Create a new branch (`git checkout -b feature-xyz`)
-- Make your changes and commit them (`git commit -am 'Add new feature'`)
-- Push to the branch (`git push origin feature-xyz`)
-- Open a pull request
-
 ## Known Issues
 
 - The encryption may not work in some older browsers.
